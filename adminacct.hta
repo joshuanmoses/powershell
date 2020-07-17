@@ -1,0 +1,382 @@
+<html>
+<head>
+<title>Create An Admin Account Application - Version 2.0</title>
+
+  <body align="left">Version 3.0 - created by Joshua Moses</body><br/>
+  <body aligh="left">     initial script</body><br/>
+
+
+
+<HTA:APPLICATION
+     ID="HTAUI" 
+     APPLICATIONNAME="Admin Account Creator"
+     SCROLL="yes"
+     SINGLEINSTANCE="no"
+     WINDOWSTATE="maximized"
+>
+</head>
+
+<style>
+Body
+{
+	background-color:lightgrey;
+	font-family: TimeNewRoman;
+	font-size: 10pt;
+	margin-top: 2px;
+	margin-left: 8px;
+	margin-right: 3px;
+	margin bottom: 3px;
+}
+
+</style>
+
+<SCRIPT language="VBScript">
+
+DIM displayname
+DIM firstname
+DIM lastname
+DIM new_description
+DIM original_user
+
+
+'*****************************************************************************************************************
+'   sets the exipration date choices
+'*****************************************************************************************************************
+
+Sub Window_Onload
+ 	self.Focus()
+ 	self.ResizeTo 1000,700
+	Dim iTimer
+
+
+	
+end sub
+
+'*****************************************************************************************************************
+'  checks that the owner account exists and displays the Person's name
+'*****************************************************************************************************************
+
+Sub subCheckName
+	On Error Resume Next
+	
+	Dim sName 
+	sName= svcname.value
+
+	If sName = "" Then
+		msgbox "You did not enter a value"
+		svcname.style.backgroundcolor="red"
+	Else
+	
+		Set oConnection = CreateObject("ADODB.Connection")	
+		oConnection.Open "Provider=ADsDSOObject;"
+	
+		blnFound = False
+
+		Set oCommand = CreateObject("ADODB.Command")
+		oCommand.ActiveConnection = oConnection
+		oCommand.CommandText = "<LDAP://dc=corp,dc=yourdomain,dc=com>;(&(objectCategory=person)(objectClass=User)(samaccountname=" & sName &"));ADsPath,displayname,givenname,sn;subtree"
+
+		Set oRecSet = oCommand.Execute
+	
+		Do Until oRecSet.EOF
+			blnFound = True
+			firstname = oRecSet.Fields("givenname")
+			lastname = oRecSet.Fields("sn")
+			new_description = "Owner ID: " & sName
+			displayname = oRecSet.Fields("displayname")
+			original_user = sName
+			oRecSet.MoveNext
+		Loop
+	
+		If blnFound <> True Then
+			svcname.style.backgroundcolor="red"
+			msgbox "***" & sName & " is NOT found!***"
+		Else
+			blnFound = False
+			svcname.style.backgroundcolor="green"
+			msgbox displayname
+		End If
+		sName = ""
+		Set oConn = Nothing
+		Set oCommand = Nothing
+		Set oRecSet = Nothing
+		blnFound = ""
+	End If
+
+End Sub
+
+'*****************************************************************************************************************
+'   checks that the name of the sAMAccountname is not blank and does not already exist
+'*****************************************************************************************************************
+
+Sub subCheckSAM
+	On Error Resume Next
+	
+	Dim sName 
+	sSAM= svcSAM.value
+
+	If sSAM = "" Then
+		msgbox "You did not enter a value"
+		svcSAM.style.backgroundcolor="red"
+	elseif instr(sSAM," ") > 0 then
+		msgbox "Spaces are not allowed"
+		svcSAM.style.backgroundcolor="red"
+	Elseif len(sSAM) > 20 then
+		svcSAM.style.backgroundcolor="red"
+		msgbox "This Value must be less than 20 characters"
+	Else
+	
+		Set oConnection = CreateObject("ADODB.Connection")	
+		oConnection.Open "Provider=ADsDSOObject;"
+	
+		blnFound1 = False	
+		blnFound2 = False
+
+		Set oCommand = CreateObject("ADODB.Command")
+		oCommand.ActiveConnection = oConnection
+		oCommand.CommandText = "<LDAP://dc=corp,dc=yourdomain,dc=com>;(&(objectCategory=person)(objectClass=User)(sAMAccountName=" & sSAM &"));ADsPath;subtree"
+														
+		Set oRecSet = oCommand.Execute
+	
+		Do Until oRecSet.EOF
+			blnFound1 = True 
+			oRecSet.MoveNext
+		Loop
+	
+		Set oRecSet = Nothing
+
+		oCommand.CommandText = "<LDAP://dc=corp,dc=yourdomain,dc=com>;(&(objectCategory=person)(objectClass=User)(userPrincipalName=" & LCASE(sSAM) &"@corp.yourdomain.com));ADsPath;subtree"
+														
+		Set oRecSet = oCommand.Execute
+	
+		Do Until oRecSet.EOF
+			blnFound2 = True 
+			oRecSet.MoveNext
+		Loop
+	
+		If blnFound1 = True or blnFound2 = True Then
+			blnFound1 = False
+			blnFound2 = False
+			svcSAM.style.backgroundcolor="red"
+			msgbox "***" & sSAM & " is NOT available!***"
+		Else
+			rightgood = false
+			if right(sSAM,3) = "ADM" or right(sSAM,3) = "LOC" then
+				rightgood = true
+			else
+				msgbox "Name must end in ADM or LOC"
+			end if
+			if rightgood = true then
+				svcSAM.style.backgroundcolor="green"
+			else
+				svcSAM.style.backgroundcolor="red"
+			end if
+		End If
+		sSAM = ""
+		Set oConn = Nothing
+		Set oCommand = Nothing
+		Set oRecSet = Nothing
+		blnFound = ""
+	End If
+End Sub
+
+'*****************************************************************************************************************
+'   checks that the description is not blank
+'*****************************************************************************************************************
+
+Sub subCheckDesc
+	On Error Resume Next
+
+	sDesc= svcDesc.value
+	
+	If sDesc = "" Then
+		msgbox "You did not enter a value"
+		svcDesc.style.backgroundcolor="red"
+	Else
+		svcDesc.style.backgroundcolor="green"
+	End If
+	
+End Sub
+
+'*****************************************************************************************************************
+'   checks that the ticket number is not blank
+'*****************************************************************************************************************
+
+Sub subCheckTicket
+	On Error Resume Next
+	
+	sTicket= svcTicket.value
+
+	If sTicket = "" Then
+		msgbox "You did not enter a value"
+		svcTicket.style.backgroundcolor="red"
+	Else
+		svcTicket.style.backgroundcolor="green"
+	End If
+	
+End Sub
+
+'*****************************************************************************************************************
+'   creates the account
+'*****************************************************************************************************************
+
+Sub subCreate
+	'On Error Resume Next
+
+	Dim sSubmit
+	Dim intUAC
+	Dim new_cn
+	Const ADS_UF_DONT_EXPIRE_PASSWD = &H10000
+
+	datYear = DatePart("yyyy",Now)+1
+	datMonth = DatePart("m",Now)
+	datday = DatePart("d",now)
+	expiration = datMonth & "/" & datDay & "/" & datYear
+
+'*****************************************************************************************************************
+'account creation
+'*****************************************************************************************************************
+
+	If svcName.style.backgroundcolor<>"green" or svcSAM.style.backgroundcolor<>"green" or svcDesc.style.backgroundcolor<>"green" or svcTicket.style.backgroundcolor<>"green" or cboRightAccount.value <> "Yes" Then
+		msgbox "You have an oustanding issue. Please review any text box that is not Green or Right Account selection not YES"
+	Else
+
+		sInfo = "Ticket: " & svcTicket.Value
+		sInfo = sInfo & vbCRLF & "RQST: " & svcDesc.value
+		if right(svcSAM.value,3) = "ADM" then
+			lastname = lastname & " (ADM)"
+			displayname = lastname & ", " & firstname
+		end if
+		if right(svcSAM.value,3) = "LOC" then
+			lastname = lastname & " (LOC)"
+			displayname = lastname & firstname
+		end if
+		new_cn = "cn=" & lastname & "\, " & firstname		
+
+		Set oOU = GetObject("LDAP://ou=Admin_LOC,ou=Enterprise,dc=corp,dc=yourdomain,dc=com")
+		Set oUser = oOU.Create("User",new_cn)
+
+		oUser.Put "info", sInfo
+		oUser.Put "sAMAccountName", svcSAM.value
+		oUser.Put "userPrincipalName", svcSAM.value & "@CORP.yourdomain.COM"
+		oUser.Put "employeeType","A"
+		oUser.Put "title", "ADM_LOC"
+		oUser.accountExpirationDate = expiration 
+		oUser.Put "description", new_description
+		oUser.Put "department", cbomailboxlocation.value
+		oUser.Put "givenname", firstname
+		oUser.Put "sn", lastname
+		oUser.Put "displayName", displayname
+		oUser.SetInfo
+		
+'*****************************************************************************************************************
+'   setting permissions
+'*****************************************************************************************************************
+
+		set ofsys = createobject("Scripting.FileSystemObject")
+		filename = "D:\Cyber Attack Defense scripts\HTAs\intermediate files - do not use\set_Admin_permissions.ps1"
+		Set objoutput = ofsys.createtextfile(filename)
+
+		objoutput.writeline "Add-PSSnapin Quest.ActiveRoles.ADManagement"
+		objoutput.writeline "add-qadpermission " & svcSAM.value & " -extendedright user-change-password -account """ & original_user & """ -rights 'genericread'"
+		objoutput.close
+
+		Set oShell  = CreateObject("WScript.Shell")
+		oShell.Run """D:\Cyber Attack Defense scripts\HTAs\intermediate files - do not use\intermediate set Admin permissions.vbs"""
+
+'*****************************************************************************************************************
+'   resetting HTA boxes
+'*****************************************************************************************************************
+
+		If err.Number <> 0 Then
+			err.Clear
+			msgbox "There was a problem with creating the account" & vbCRLF & err.Description
+		Else
+			iTimer = window.setinterval("subStopTimer",1000)
+			oUser.SetPassword "Ch@rter!123"
+			oUser.Put "userAccountControl",512
+			oUser.pwdlastset = 0
+			oUser.SetInfo
+
+			iTimer = window.setinterval("subStopTimer",1000)
+
+			If err.Number <> 0 Then
+				err.Clear
+				msgbox "The account was created but there was a problem with enabling it" & vbCRLF & err.Description
+			Else
+				msgBox "Account Successfully Created - Click ok after DOS windows has closed"
+				svcName.style.backgroundcolor="white"
+				svcSAM.style.backgroundcolor="white"
+				svcname.value = ""
+				svcSAM.value = ""
+				svcDesc.style.backgroundcolor="white"
+				svcTicket.style.backgroundcolor="white"
+				svcDesc.value = ""
+				svcTicket.value = ""
+			end if
+		End If
+
+		Set oOU = Nothing
+		Set oUser = Nothing
+		intUAT = ""
+		sInfo = ""
+		intFlags = ""
+		
+	End If
+	
+End Sub
+
+Sub subStopTimer
+	window.clearTimeout(iTimer)
+End Sub
+
+
+</SCRIPT>
+
+<BODY>
+<H1 align="center"><u>Create an Admin Account</u></H1>
+<H5 align="center">The ALL of the  fields must be checked and turned GREEN via pushing each button in order to build the account.</H5>
+
+<p align="left"><font face="arial" size="3">Enter the owner account ID:</FONT>
+<input type="text" name="svcname" size="30" value="">
+<input type="button" value="Check if name is unique" onclick="subCheckName" name="btnCheckName"></p>
+
+<p align="left"><font face="arial" size="3">Is the owner account correct:	</FONT>
+<select size="2" name="cboRightAccount">
+<option selected value="No">No</option>
+<option value="Yes">Yes</option>
+</select>
+
+<p align="left"><font face="arial" size="3">Enter a sAMAccountName for the new Admin account:</FONT>
+<input type="text" name="svcSAM" size="30" value="">
+<input type="button" value="Check if sAMAccountName is unique" onclick="subCheckSAM" name="btnCheckSAM"></p>
+
+<p align="left"><font face="arial" size="3">Enter Policy Waiver Request ID:</FONT>
+<input type="text" name="svcDesc" size="30" value="">
+<input type="button" value="Click to accept description" onclick="subCheckDesc" name="btnCheckDesc"></p>
+
+<p align="left"><font face="arial" size="3">Enter a Ticket Number</FONT>
+<input type="text" name="svcTicket" size="30" value="">
+<input type="button" value="Click to accept ticket number" onclick="subCheckTicket" name="btnCheckTicket"></p>
+
+
+<p align="left"><font face="arial" size="3">What is the Admin type:	</FONT>
+<select size="5" name="cboMailboxLocation">
+<option selected value="IT-Admin">IT-Admin</option>
+<option value="IT-Dev">IT-Dev</option>
+<option value="IT-Field">IT-Field</option>
+<option value="Other">Other</option>
+<option value="ENG">Eng</option>
+</select>
+
+<p align="center"><b> | </b></p>
+<p align="center"><b> | </b></p>
+<p align="center"><font face="arial"><b> V </b></font></p>
+<p align="center">
+<input type="button" value="Build Admin Account" onclick="subCreate" name="btnSubmit"></p>
+
+<p align="center"><b><font face="arial" size="3" color="red">****You will need to set the password for the Admin account in ADUC\ADAC****</b></FONT>
+
+
+</BODY>
+</html>
